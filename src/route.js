@@ -1,5 +1,5 @@
 const http = require('http')
-const { read } = require('./asyncRead')
+const { read } = require('./read')
 
 const server = http.createServer((req, res) => {
   read(req, res)

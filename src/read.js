@@ -4,9 +4,10 @@ const fs = require('fs')
 const stat = promisify(fs.stat)
 const readdir = promisify(fs.readdir)
 const handlebars = require('handlebars')
-const { root } = require('./config')
-// const mime = require('./mime')
+const config = require('./config')
 const { type } = require('./mime')
+const compress = require('./compress')
+const cache = require('./cache')
 
 const tplDir = path.join(__dirname, './template/template.tpl')
 const source = fs.readFileSync(tplDir)
@@ -14,21 +15,33 @@ const source = fs.readFileSync(tplDir)
 async function read(req, res) {
   const { url } = req
   if(url === '/favicon.ico') return
-  let filePath = path.join(root, url)
+  let filePath = path.join(config.root, url)
   try{
     let stats = await stat(filePath)
     if(stats.isFile()) {
-      res.writeHead(200, { contentType: type[path.extname(url)]})
-      fs.createReadStream(filePath).pipe(res)
+      let rs = fs.createReadStream(filePath)
+      if(url.match(config.url)) {
+        if(cache(stats, req, res)) {
+          res.statusCode = 304
+          res.end()
+          return
+        }
+        else {
+          res.statusCode = 200
+          res.setHeader('contentType', type[path.extname(url)])
+          compress(rs, req, res)
+          return
+        }
+      }
     }
-    if(stats.isDirectory()) {
+    else if(stats.isDirectory()) {
       readdir(filePath)
         .then(files => {
           res.writeHead(200, { contentType: 'text/html'})
           let data = {
             files,
             title: path.basename(filePath),
-            dir: path.relative(root, filePath)
+            dir: path.relative(config.root, filePath)
           }
           
           let template = handlebars.compile(source.toString())

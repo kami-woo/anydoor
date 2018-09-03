@@ -13,5 +13,4 @@ type = {
   ".docx": 'application/msword'
 }
 
-// module.exports = 
 exports.type = type
